@@ -9,7 +9,8 @@ const HTML: &str = r#"
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Rust Web App</title>
+    <title>Welcome</title>
+    <link rel="icon" type="image/png" href="/static/ferris-ico.png">
     <style>
         body {
             font-family: Arial, sans-serif;
