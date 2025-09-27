@@ -1,5 +1,8 @@
 use tiny_http::{Server, Response, Header};
 use std::env;
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::process;
 
 const HTML: &str = r#"
@@ -36,24 +39,59 @@ const HTML: &str = r#"
 </head>
     <body>
         <h1>Welcome to Rust Web App!</h1>
-        <img src="https://rustacean.net/assets/rustacean-flat-happy.png" alt="Ferris the Crab">
+        <img src="/static/ferris.png" alt="Ferris the Crab">
     </body>
 </html>
 "#;
+
+fn serve_static_file(file_path: &str) -> Option<Vec<u8>> {
+    let path = Path::new("static").join(file_path);
+    if !path.exists() {
+        return None;
+    }
+    
+    let mut file = match File::open(&path) {
+        Ok(file) => file,
+        Err(_) => return None,
+    };
+    
+    let mut buffer = Vec::new();
+    if file.read_to_end(&mut buffer).is_ok() {
+        Some(buffer)
+    } else {
+        None
+    }
+}
+
+fn get_mime_type(path: &str) -> &'static str {
+    if path.ends_with(".png") {
+        "image/png"
+    } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if path.ends_with(".html") {
+        "text/html"
+    } else if path.ends_with(".css") {
+        "text/css"
+    } else if path.ends_with(".js") {
+        "application/javascript"
+    } else {
+        "application/octet-stream"
+    }
+}
 
 fn main() {
     // Load environment variables from .env file
     dotenv::dotenv().ok();
     
-    // Get port from environment variable or use default 5000
+    // Get port from environment variable or use default 7000
     let port = env::var("PORT")
-        .unwrap_or_else(|_| "5000".to_string())
+        .unwrap_or_else(|_| "7000".to_string())
         .parse::<u16>()
         .unwrap_or_else(|_| {
-            eprintln!("Invalid PORT environment variable. Using default port 5000.");
-            5000
+            eprintln!("Invalid port number");
+            process::exit(1);
         });
-    
+
     let addr = format!("0.0.0.0:{}", port);
     let server = match Server::http(&addr) {
         Ok(server) => server,
@@ -66,13 +104,35 @@ fn main() {
     println!("Server running at http://localhost:{}", port);
 
     for request in server.incoming_requests() {
-        let response = Response::from_string(HTML);
-        let response = response.with_header(
-            Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap()
-        );
+        let path = request.url();
         
-        if let Err(e) = request.respond(response) {
-            eprintln!("Failed to send response: {}", e);
+        // Handle static files
+        if path.starts_with("/static/") {
+            let file_path = &path[8..]; // Remove '/static/' prefix
+            match serve_static_file(file_path) {
+                Some(content) => {
+                    let mime_type = get_mime_type(file_path);
+                    let response = Response::from_data(content)
+                        .with_header(format!("Content-Type: {}", mime_type).parse::<Header>().unwrap());
+                    if let Err(e) = request.respond(response) {
+                        eprintln!("Failed to send file response: {}", e);
+                    }
+                },
+                None => {
+                    let response = Response::from_string("File not found")
+                        .with_status_code(404);
+                    if let Err(e) = request.respond(response) {
+                        eprintln!("Failed to send 404 response: {}", e);
+                    }
+                }
+            }
+        } else {
+            // Serve the main HTML for all other routes
+            let response = Response::from_string(HTML)
+                .with_header("Content-Type: text/html; charset=utf-8".parse::<Header>().unwrap());
+            if let Err(e) = request.respond(response) {
+                eprintln!("Failed to send response: {}", e);
+            }
         }
     }
 }
