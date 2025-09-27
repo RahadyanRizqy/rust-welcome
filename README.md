@@ -28,11 +28,11 @@ The application will be available at `http://localhost:5000` by default
 The application uses a `.env` file for configuration. Create a `.env` file in the project root with:
 
 ```
-PORT=5000
+PORT=7000
 ```
 
 Available environment variables:
-- `PORT` - The port number the server will listen on (default: 5000)
+- `PORT` - The port number the server will listen on (default: 7000)
 
 ## Project Structure
 
@@ -48,13 +48,3 @@ Available environment variables:
 ## Development
 
 To restart the server after making changes, press `Ctrl+C` to stop the current instance and run `cargo run` again.
-
-## License
-
-This project is open source and available under the [MIT License](LICENSE).
-- env_logger - Logging
-- log - Logging facade
-
-## License
-
-This project is open source and available under the MIT License.
